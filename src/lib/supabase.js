@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Reemplaza estos valores con los de tu proyecto Supabase
-// Los encuentras en: Project Settings > API
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://TU_PROYECTO.supabase.co'
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'TU_ANON_KEY'
+// Environment variables are mapped from NEXT_PUBLIC_* to VITE_* in vite.config.js
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('[Supabase] Missing environment variables. Please check that the Supabase integration is connected.')
+}
+
+export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '')
