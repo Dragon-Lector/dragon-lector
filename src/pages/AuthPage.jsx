@@ -4,34 +4,24 @@ import { useAuth } from '../hooks/useAuth'
 
 export default function AuthPage() {
   const [mode, setMode] = useState('login') // 'login' | 'register'
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setMessage('')
     setLoading(true)
     try {
       if (mode === 'login') {
-        await signIn(email, password)
-        navigate('/')
+        await signIn(username, password)
       } else {
-        if (username.length < 3) throw new Error('El nombre debe tener al menos 3 caracteres')
-        const result = await signUp(email, password, username)
-        // Check if email confirmation is required
-        if (result?.user && !result?.session) {
-          setMessage('Revisa tu correo electrónico para confirmar tu cuenta.')
-        } else {
-          navigate('/')
-        }
+        await signUp(username, password)
       }
+      navigate('/')
     } catch (err) {
       setError(err.message || 'Algo salió mal. Intenta de nuevo.')
     } finally {
@@ -56,34 +46,26 @@ export default function AuthPage() {
       <div className="w-full max-w-sm animate-slide-up">
         <div className="card p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'register' && (
-              <div>
-                <label className="block text-xs font-mono text-ink-500 uppercase tracking-wider mb-1.5">
-                  Nombre de usuario
-                </label>
-                <input
-                  className="input-field"
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="Tu nombre en el club"
-                  required
-                />
-              </div>
-            )}
-
             <div>
               <label className="block text-xs font-mono text-ink-500 uppercase tracking-wider mb-1.5">
-                Correo electrónico
+                Nombre de usuario
               </label>
               <input
                 className="input-field"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="Tu nombre en el club"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
               />
+              {mode === 'register' && (
+                <p className="mt-1.5 text-[11px] text-ink-300 font-mono">
+                  Solo letras, números, punto, guion o guion bajo
+                </p>
+              )}
             </div>
 
             <div>
@@ -96,6 +78,7 @@ export default function AuthPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder={mode === 'register' ? 'Mínimo 6 caracteres' : '••••••••'}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                 required
               />
             </div>
@@ -103,12 +86,6 @@ export default function AuthPage() {
             {error && (
               <div className="bg-scarlet-400/10 border border-scarlet-400/30 text-scarlet-600 text-sm px-4 py-3 rounded-sm">
                 {error}
-              </div>
-            )}
-
-            {message && (
-              <div className="bg-emerald-400/10 border border-emerald-400/30 text-emerald-700 text-sm px-4 py-3 rounded-sm">
-                {message}
               </div>
             )}
 

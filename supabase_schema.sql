@@ -1,9 +1,13 @@
 -- ============================================================
 -- CLUB DE ESCRITURA - Supabase Schema
--- Ejecuta esto en el SQL Editor de tu proyecto Supabase
+-- Sistema de auth: SOLO usuario + contraseña (sin email).
+-- La app usa internamente un email sintético "username@dragonlector.local"
+-- y el trigger auto_confirm_user marca el email como confirmado.
 -- ============================================================
 
--- Tabla de perfiles de usuario (extiende auth.users)
+-- ------------------------------------------------------------
+-- TABLA: profiles (extiende auth.users)
+-- ------------------------------------------------------------
 create table public.profiles (
   id uuid references auth.users(id) on delete cascade primary key,
   username text unique not null,
@@ -11,7 +15,9 @@ create table public.profiles (
   created_at timestamptz default now()
 );
 
--- Tabla de retos mensuales
+-- ------------------------------------------------------------
+-- TABLA: challenges (retos mensuales)
+-- ------------------------------------------------------------
 create table public.challenges (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -26,7 +32,9 @@ create table public.challenges (
   voting_deadline timestamptz
 );
 
--- Tabla de historias enviadas
+-- ------------------------------------------------------------
+-- TABLA: stories (historias enviadas)
+-- ------------------------------------------------------------
 create table public.stories (
   id uuid primary key default gen_random_uuid(),
   challenge_id uuid references public.challenges(id) on delete cascade,
@@ -41,38 +49,83 @@ create table public.stories (
   created_at timestamptz default now()
 );
 
+-- ------------------------------------------------------------
+-- TABLA: comments
+-- ------------------------------------------------------------
+create table public.comments (
+  id uuid primary key default gen_random_uuid(),
+  story_id uuid references public.stories(id) on delete cascade,
+  author_id uuid references public.profiles(id),
+  content text not null,
+  created_at timestamptz default now(),
+  unique(story_id, author_id)
+);
+
+-- ------------------------------------------------------------
+-- TABLA: votes (puntos escalonados)
+-- ------------------------------------------------------------
+create table public.votes (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid references public.challenges(id) on delete cascade,
+  voter_id uuid references public.profiles(id),
+  story_id uuid references public.stories(id) on delete cascade,
+  points int not null check (points > 0),
+  created_at timestamptz default now(),
+  unique(challenge_id, voter_id, story_id),
+  unique(challenge_id, voter_id, points)
+);
+
+-- ------------------------------------------------------------
+-- TABLA: category_votes
+-- ------------------------------------------------------------
+create table public.category_votes (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid references public.challenges(id) on delete cascade,
+  voter_id uuid references public.profiles(id),
+  story_id uuid references public.stories(id) on delete cascade,
+  category text not null check (category in ('best_character', 'best_plot', 'best_opening')),
+  created_at timestamptz default now(),
+  unique(challenge_id, voter_id, category)
+);
+
+-- ------------------------------------------------------------
+-- TABLA: challenge_participants
+-- ------------------------------------------------------------
+create table public.challenge_participants (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid references public.challenges(id) on delete cascade,
+  user_id uuid references public.profiles(id),
+  role text not null default 'reader' check (role in ('writer', 'reader')),
+  created_at timestamptz default now(),
+  unique(challenge_id, user_id)
+);
+
 -- ============================================================
--- STORAGE: bucket para portadas de historias
--- Ejecuta esto también en el SQL Editor
+-- STORAGE
 -- ============================================================
 insert into storage.buckets (id, name, public)
 values ('story-covers', 'story-covers', true)
 on conflict do nothing;
 
--- Bucket para los archivos de historias (PDF / DOCX)
--- No es público: se accede mediante URLs firmadas temporales
 insert into storage.buckets (id, name, public)
 values ('story-files', 'story-files', false)
 on conflict do nothing;
 
--- Política: cualquiera puede ver las imágenes (son públicas)
+-- Storage policies: covers (público)
 create policy "covers_public_read" on storage.objects
   for select using (bucket_id = 'story-covers');
 
--- Política: usuarios autenticados pueden subir sus propias imágenes
 create policy "covers_authenticated_upload" on storage.objects
   for insert with check (
     bucket_id = 'story-covers' and auth.role() = 'authenticated'
   );
 
--- Política: el autor puede borrar su propia imagen
 create policy "covers_owner_delete" on storage.objects
   for delete using (
     bucket_id = 'story-covers' and auth.uid()::text = (storage.foldername(name))[1]
   );
 
--- Políticas para story-files (archivos privados)
--- Solo usuarios autenticados pueden leer (se generan URLs firmadas en la app)
+-- Storage policies: files (privado, URLs firmadas)
 create policy "files_authenticated_read" on storage.objects
   for select using (
     bucket_id = 'story-files' and auth.role() = 'authenticated'
@@ -88,53 +141,9 @@ create policy "files_owner_delete" on storage.objects
     bucket_id = 'story-files' and auth.uid()::text = (storage.foldername(name))[1]
   );
 
--- Tabla de comentarios
-create table public.comments (
-  id uuid primary key default gen_random_uuid(),
-  story_id uuid references public.stories(id) on delete cascade,
-  author_id uuid references public.profiles(id),
-  content text not null,
-  created_at timestamptz default now(),
-  unique(story_id, author_id)  -- Un comentario por historia por usuario
-);
-
--- Tabla de votos principales (puntos escalonados)
-create table public.votes (
-  id uuid primary key default gen_random_uuid(),
-  challenge_id uuid references public.challenges(id) on delete cascade,
-  voter_id uuid references public.profiles(id),
-  story_id uuid references public.stories(id) on delete cascade,
-  points int not null check (points > 0),
-  created_at timestamptz default now(),
-  unique(challenge_id, voter_id, story_id),
-  unique(challenge_id, voter_id, points)  -- No repetir puntaje por votante
-);
-
--- Tabla de votos por subcategoría
-create table public.category_votes (
-  id uuid primary key default gen_random_uuid(),
-  challenge_id uuid references public.challenges(id) on delete cascade,
-  voter_id uuid references public.profiles(id),
-  story_id uuid references public.stories(id) on delete cascade,
-  category text not null check (category in ('best_character', 'best_plot', 'best_opening')),
-  created_at timestamptz default now(),
-  unique(challenge_id, voter_id, category)  -- Un voto por categoría por votante
-);
-
--- Tabla de participantes del reto (escritores + lectores)
-create table public.challenge_participants (
-  id uuid primary key default gen_random_uuid(),
-  challenge_id uuid references public.challenges(id) on delete cascade,
-  user_id uuid references public.profiles(id),
-  role text not null default 'reader' check (role in ('writer', 'reader')),
-  created_at timestamptz default now(),
-  unique(challenge_id, user_id)
-);
-
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================
-
 alter table public.profiles enable row level security;
 alter table public.challenges enable row level security;
 alter table public.stories enable row level security;
@@ -143,28 +152,27 @@ alter table public.votes enable row level security;
 alter table public.category_votes enable row level security;
 alter table public.challenge_participants enable row level security;
 
--- Profiles: todos pueden ver, solo el dueño edita
+-- Profiles
 create policy "profiles_select" on public.profiles for select using (true);
 create policy "profiles_insert" on public.profiles for insert with check (auth.uid() = id);
 create policy "profiles_update" on public.profiles for update using (auth.uid() = id);
 
--- Challenges: todos ven, solo admin crea/edita
+-- Challenges
 create policy "challenges_select" on public.challenges for select using (true);
 create policy "challenges_insert" on public.challenges for insert
   with check (exists (select 1 from public.profiles where id = auth.uid() and is_admin = true));
 create policy "challenges_update" on public.challenges for update
   using (exists (select 1 from public.profiles where id = auth.uid() and is_admin = true));
 
--- Stories: durante voting/commenting se oculta author_id en la app (no en DB)
--- Solo el autor ve su propia historia antes de reveal; todos ven en reveal
+-- Stories
 create policy "stories_select" on public.stories for select using (true);
 create policy "stories_insert" on public.stories for insert with check (auth.uid() = author_id);
 
--- Comments: todos ven, usuarios autenticados crean
+-- Comments
 create policy "comments_select" on public.comments for select using (true);
 create policy "comments_insert" on public.comments for insert with check (auth.uid() = author_id);
 
--- Votes: usuario solo ve y crea sus propios votos
+-- Votes
 create policy "votes_select" on public.votes for select using (auth.uid() = voter_id);
 create policy "votes_insert" on public.votes for insert with check (auth.uid() = voter_id);
 create policy "votes_delete" on public.votes for delete using (auth.uid() = voter_id);
@@ -174,22 +182,58 @@ create policy "cat_votes_select" on public.category_votes for select using (auth
 create policy "cat_votes_insert" on public.category_votes for insert with check (auth.uid() = voter_id);
 create policy "cat_votes_delete" on public.category_votes for delete using (auth.uid() = voter_id);
 
--- Participants: todos ven, usuarios autenticados se inscriben
+-- Participants
 create policy "participants_select" on public.challenge_participants for select using (true);
 create policy "participants_insert" on public.challenge_participants for insert with check (auth.uid() = user_id);
 
 -- ============================================================
--- FUNCIÓN: auto-crear perfil al registrarse
+-- AUTH: auto-confirmar email (usamos emails sintéticos)
+-- Trigger BEFORE INSERT en auth.users que marca email_confirmed_at = now()
+-- para que el flujo "solo usuario + contraseña" funcione sin enviar correos.
 -- ============================================================
-create or replace function public.handle_new_user()
-returns trigger as $$
+create or replace function public.auto_confirm_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
-  insert into public.profiles (id, username)
-  values (new.id, new.raw_user_meta_data->>'username');
+  new.email_confirmed_at := coalesce(new.email_confirmed_at, now());
   return new;
 end;
-$$ language plpgsql security definer;
+$$;
 
+drop trigger if exists on_auth_user_auto_confirm on auth.users;
+create trigger on_auth_user_auto_confirm
+  before insert on auth.users
+  for each row execute function public.auto_confirm_user();
+
+-- ============================================================
+-- AUTH: crear perfil al registrarse (toma username de metadata)
+-- ============================================================
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_username text;
+begin
+  v_username := coalesce(
+    new.raw_user_meta_data ->> 'username',
+    split_part(new.email, '@', 1)
+  );
+
+  insert into public.profiles (id, username)
+  values (new.id, v_username)
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+  for each row execute function public.handle_new_user();
