@@ -38,9 +38,18 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username } }
+      options: { 
+        data: { username },
+        emailRedirectTo: window.location.origin
+      }
     })
-    if (error) throw error
+    if (error) {
+      // Handle rate limit error with a more user-friendly message
+      if (error.message.includes('rate limit') || error.message.includes('Rate limit')) {
+        throw new Error('Demasiados intentos. Por favor espera unos minutos antes de intentar de nuevo.')
+      }
+      throw error
+    }
     return data
   }
 

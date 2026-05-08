@@ -9,12 +9,14 @@ export default function AuthPage() {
   const [username, setUsername] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
   const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setMessage('')
     setLoading(true)
     try {
       if (mode === 'login') {
@@ -22,8 +24,13 @@ export default function AuthPage() {
         navigate('/')
       } else {
         if (username.length < 3) throw new Error('El nombre debe tener al menos 3 caracteres')
-        await signUp(email, password, username)
-        navigate('/')
+        const result = await signUp(email, password, username)
+        // Check if email confirmation is required
+        if (result?.user && !result?.session) {
+          setMessage('Revisa tu correo electrónico para confirmar tu cuenta.')
+        } else {
+          navigate('/')
+        }
       }
     } catch (err) {
       setError(err.message || 'Algo salió mal. Intenta de nuevo.')
@@ -96,6 +103,12 @@ export default function AuthPage() {
             {error && (
               <div className="bg-scarlet-400/10 border border-scarlet-400/30 text-scarlet-600 text-sm px-4 py-3 rounded-sm">
                 {error}
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-emerald-400/10 border border-emerald-400/30 text-emerald-700 text-sm px-4 py-3 rounded-sm">
+                {message}
               </div>
             )}
 
