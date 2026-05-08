@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  body {
+    background-color: #fdf8ed;
+    color: #1a120a;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar custom */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #f5e4b8; }
+  ::-webkit-scrollbar-thumb { background: #b89c7d; border-radius: 3px; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-ink-800 text-cream-100 font-body font-medium px-6 py-3 rounded-sm
+           hover:bg-ink-900 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border border-ink-300 text-ink-700 font-body font-medium px-6 py-3 rounded-sm
+           hover:bg-ink-50 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-scarlet-500 text-white font-body font-medium px-6 py-3 rounded-sm
+           hover:bg-scarlet-600 active:scale-95 transition-all duration-150;
+  }
+
+  .input-field {
+    @apply w-full bg-cream-50 border border-ink-200 text-ink-900 
+           font-body px-4 py-3 rounded-sm outline-none
+           focus:border-ink-500 focus:ring-1 focus:ring-ink-300
+           placeholder:text-ink-300 transition-colors;
+  }
+
+  .card {
+    @apply bg-cream-50 border border-ink-100 rounded-sm shadow-sm;
+  }
+
+  .phase-badge {
+    @apply inline-flex items-center gap-1.5 text-xs font-mono font-medium
+           px-2.5 py-1 rounded-full uppercase tracking-wider;
+  }
+}
+
+/* Decorative paper texture overlay */
+.paper-bg {
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
