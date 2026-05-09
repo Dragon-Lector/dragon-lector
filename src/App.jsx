@@ -5,6 +5,13 @@ import HomePage from './pages/HomePage'
 import ChallengePage from './pages/ChallengePage'
 import AdminPage from './pages/AdminPage'
 import RuletaPage from './pages/RuletaPage'
+import { createLogger, getLevel } from './lib/logger'
+
+const log = createLogger('app')
+log.info(
+  `app inicializada — nivel de log: "${getLevel()}". ` +
+  `Cambia con __log.setLevel("debug" | "info" | "warn" | "error" | "silent")`
+)
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
